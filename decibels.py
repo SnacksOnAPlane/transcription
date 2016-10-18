@@ -1,9 +1,12 @@
-#!/usr/bin/env python
+#!/usr/bin/env frameworkpython
 
 import pyaudio
 import wave
 import struct
 import math
+import matplotlib.pyplot as plt
+import numpy as np
+import pdb
 
 CHUNK = 1024
 
@@ -16,6 +19,9 @@ class SpeechFinder:
     self.format = self.p.get_format_from_width(self.width)
     self.channels = self.wf.getnchannels()
     self.rate = self.wf.getframerate()
+    print "rate: %s, width: %s, format: %s, channels: %s" % (self.rate, self.width, self.format, self.channels)
+    self.starts = []
+    self.stops = []
 
   @classmethod
   def rms(cls, data):
@@ -36,9 +42,10 @@ class SpeechFinder:
     forgetfactor = 2
     threshold = 15
 
-    stream = self.p.open(format=self.format, channels=self.channels, rate=self.rate, output=True)
+    #stream = self.p.open(format=self.format, channels=self.channels, rate=self.rate, output=True)
 
     data = self.wf.readframes(CHUNK)
+    framenum = 0
     current = self.decibels(data)
     level = current
     background = current
@@ -46,6 +53,8 @@ class SpeechFinder:
     isSpeech = False
 
     while len(data) > 0:
+      framenum += len(data)
+      time = framenum / (4 * float(self.rate))
       current = self.decibels(data)
       level = ((level * forgetfactor) + current) / (forgetfactor + 1)
       #print level - background, background
@@ -53,23 +62,39 @@ class SpeechFinder:
         background = current
         if isSpeech:
           isSpeech = False
-          print "speech stop"
+          print "speech stop %s" % time
+          self.stops.append(time)
       else:
         background += (current - background) * adjustment
       if (level < background):
         level = background
       if (level - background > threshold):
         if not isSpeech:
-          print "speech start"
+          print "speech start %s" % time
+          self.starts.append(time)
         isSpeech = True
       #print self.decibels(data)
-      stream.write(data)
+      #stream.write(data)
       data = self.wf.readframes(CHUNK)
 
-    stream.stop_stream()
-    stream.close()
+    #stream.stop_stream()
+    #stream.close()
 
     self.p.terminate()
 
+  def plotData(self):
+    self.wf.rewind()
+    signal = self.wf.readframes(-1)
+    signal = np.fromstring(signal, 'Int16')
+    signal = signal[::2]
+
+    Time = np.linspace(0, len(signal)/float(self.rate), num=len(signal))
+
+    plt.figure(1)
+    plt.title('Signal Wave...')
+    plt.plot(Time, signal)
+    plt.show()
+
 sf = SpeechFinder('output.wav')
 sf.markSpeech()
+sf.plotData()
