@@ -22,6 +22,8 @@ class SpeechFinder:
     print "rate: %s, width: %s, format: %s, channels: %s" % (self.rate, self.width, self.format, self.channels)
     self.starts = []
     self.stops = []
+    self.backgrounds = []
+    self.a_decibels = []
 
   @classmethod
   def rms(cls, data):
@@ -53,6 +55,7 @@ class SpeechFinder:
     isSpeech = False
 
     while len(data) > 0:
+      self.a_decibels.append(current)
       framenum += len(data)
       time = framenum / (4 * float(self.rate))
       current = self.decibels(data)
@@ -76,6 +79,7 @@ class SpeechFinder:
       #print self.decibels(data)
       #stream.write(data)
       data = self.wf.readframes(CHUNK)
+      self.backgrounds.append(background)
 
     #stream.stop_stream()
     #stream.close()
@@ -92,7 +96,12 @@ class SpeechFinder:
 
     plt.figure(1)
     plt.title('Signal Wave...')
+    plt.subplot(211)
     plt.plot(Time, signal)
+    plt.subplot(212)
+    step = float(len(self.backgrounds)) / len(signal)
+    plt.plot(Time, [self.backgrounds[int(i * step)] for i in xrange(len(signal))])
+    plt.plot(Time, [self.a_decibels[int(i * step)] for i in xrange(len(signal))])
     plt.show()
 
 sf = SpeechFinder('output.wav')
